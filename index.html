@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chess Book Viewer</title>
+
+  <link rel="stylesheet" type="text/css" href="https://pgn.chessbase.com/CBReplay.css"/>
+  <script src="https://pgn.chessbase.com/jquery-3.0.0.min.js"></script>
+  <script src="https://pgn.chessbase.com/cbreplay.js" type="text/javascript"></script>
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #161512;
+      color: #bababa;
+      font-family: 'Noto Sans', 'Segoe UI', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ── */
+    #topbar {
+      height: 48px;
+      min-height: 48px;
+      background: #1e1c1a;
+      border-bottom: 1px solid #3d3d3d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+    }
+
+    #topbar .brand {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e8e8e8;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #topbar .brand span {
+      color: #629924;
+    }
+
+    #open-pdf-btn {
+      background: #629924;
+      color: #fff;
+      border: none;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-family: inherit;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #open-pdf-btn:hover {
+      background: #4e7a1a;
+    }
+
+    #pdf-file-input {
+      display: none;
+    }
+
+    /* ── Main split area ── */
+    #main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── PDF panel ── */
+    #pdf-panel {
+      width: 50%;
+      min-width: 200px;
+      display: flex;
+      flex-direction: column;
+      background: #1a1917;
+      overflow: hidden;
+      transition: width 0.3s ease;
+    }
+
+    #pdf-panel.board-hidden {
+      width: 100% !important;
+    }
+
+    #pdf-placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #555;
+      user-select: none;
+    }
+
+    #pdf-placeholder svg {
+      opacity: 0.3;
+    }
+
+    #pdf-placeholder p {
+      font-size: 14px;
+    }
+
+    #pdf-frame {
+      flex: 1;
+      border: none;
+      display: none;
+      background: #fff;
+    }
+
+    /* ── Divider ── */
+    #divider {
+      width: 5px;
+      min-width: 5px;
+      background: #2e2c2a;
+      cursor: col-resize;
+      transition: background 0.15s;
+      position: relative;
+      z-index: 5;
+    }
+
+    #divider:hover,
+    #divider.dragging {
+      background: #629924;
+    }
+
+    #divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1px;
+      height: 40px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+    }
+
+    /* ── Chess panel ── */
+    #chess-panel {
+      flex: 1;
+      min-width: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #161512;
+      overflow: auto;
+      padding: 16px;
+    }
+
+    .cbreplay {
+      max-width: 100%;
+    }
+
+    /* prevent iframe interaction stealing drag events */
+    body.is-dragging iframe {
+      pointer-events: none;
+    }
+
+    /* ── Board toggle button ── */
+    #toggle-board-btn {
+      background: transparent;
+      color: #bababa;
+      border: 1px solid #3d3d3d;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    #toggle-board-btn:hover {
+      background: #2a2826;
+      border-color: #629924;
+      color: #e8e8e8;
+    }
+
+    /* ── Smooth board collapse ── */
+    #chess-panel {
+      transition: flex 0.3s ease, min-width 0.3s ease, padding 0.3s ease;
+    }
+
+    #chess-panel.board-hidden {
+      flex: 0 0 0px !important;
+      min-width: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+
+    #divider {
+      transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease;
+    }
+
+    #divider.board-hidden {
+      width: 0 !important;
+      min-width: 0 !important;
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <div class="brand">
+      <span>♟</span> Chess Book Viewer
+    </div>
+    <button id="toggle-board-btn">♟ Hide Board</button>
+    <button id="open-pdf-btn" onclick="document.getElementById('pdf-file-input').click()">
+      Open PDF
+    </button>
+    <input type="file" id="pdf-file-input" accept=".pdf" />
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+
+    <!-- Left: PDF viewer -->
+    <div id="pdf-panel">
+      <div id="pdf-placeholder">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bababa" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="13" x2="15" y2="13"/>
+          <line x1="9" y1="17" x2="15" y2="17"/>
+          <line x1="9" y1="9" x2="11" y2="9"/>
+        </svg>
+        <p>Click <strong>Open PDF</strong> to load your book</p>
+      </div>
+      <iframe id="pdf-frame" src="about:blank"></iframe>
+    </div>
+
+    <!-- Divider -->
+    <div id="divider"></div>
+
+    <!-- Right: Chess board -->
+    <div id="chess-panel">
+      <div class="cbreplay"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── PDF loading ──
+    document.getElementById('pdf-file-input').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+      const frame = document.getElementById('pdf-frame');
+      const placeholder = document.getElementById('pdf-placeholder');
+
+      frame.src = url;
+      frame.style.display = 'block';
+      placeholder.style.display = 'none';
+    });
+
+    // ── Resizable divider ──
+    const divider = document.getElementById('divider');
+    const pdfPanel = document.getElementById('pdf-panel');
+    const main = document.getElementById('main');
+
+    let isDragging = false;
+
+    divider.addEventListener('mousedown', function (e) {
+      isDragging = true;
+      divider.classList.add('dragging');
+      document.body.classList.add('is-dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function (e) {
+      if (!isDragging) return;
+
+      const mainRect = main.getBoundingClientRect();
+      let newWidth = e.clientX - mainRect.left;
+
+      const minWidth = 200;
+      const maxWidth = mainRect.width - 200 - divider.offsetWidth;
+
+      newWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+
+      pdfPanel.style.width = newWidth + 'px';
+    });
+
+    document.addEventListener('mouseup', function () {
+      if (!isDragging) return;
+      isDragging = false;
+      divider.classList.remove('dragging');
+      document.body.classList.remove('is-dragging');
+    });
+
+    // ── Board toggle ──
+    const toggleBtn = document.getElementById('toggle-board-btn');
+    const chessPanel = document.getElementById('chess-panel');
+    let boardVisible = true;
+
+    toggleBtn.addEventListener('click', function () {
+      boardVisible = !boardVisible;
+      chessPanel.classList.toggle('board-hidden', !boardVisible);
+      divider.classList.toggle('board-hidden', !boardVisible);
+      pdfPanel.classList.toggle('board-hidden', !boardVisible);
+      toggleBtn.textContent = boardVisible ? '♟ Hide Board' : '♟ Show Board';
+      toggleBtn.style.borderColor = boardVisible ? '#3d3d3d' : '#629924';
+      toggleBtn.style.color = boardVisible ? '#bababa' : '#629924';
+    });
+  </script>
+
+</body>
+</html>
