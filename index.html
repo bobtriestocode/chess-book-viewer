@@ -171,8 +171,9 @@
       pointer-events: none;
     }
 
-    /* ── Board toggle button ── */
-    #toggle-board-btn {
+    /* ── Panel toggle buttons ── */
+    #toggle-board-btn,
+    #toggle-pdf-btn {
       background: transparent;
       color: #bababa;
       border: 1px solid #3d3d3d;
@@ -185,7 +186,8 @@
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
 
-    #toggle-board-btn:hover {
+    #toggle-board-btn:hover,
+    #toggle-pdf-btn:hover {
       background: #2a2826;
       border-color: #629924;
       color: #e8e8e8;
@@ -207,11 +209,19 @@
       transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease;
     }
 
-    #divider.board-hidden {
+    #divider.board-hidden,
+    #divider.pdf-hidden {
       width: 0 !important;
       min-width: 0 !important;
       opacity: 0;
       pointer-events: none;
+    }
+
+    /* ── Smooth PDF collapse ── */
+    #pdf-panel.pdf-hidden {
+      width: 0 !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
     }
   </style>
 </head>
@@ -222,6 +232,7 @@
     <div class="brand">
       <span>♟</span> Chess Book Viewer
     </div>
+    <button id="toggle-pdf-btn">&#128196; Hide PDF</button>
     <button id="toggle-board-btn">♟ Hide Board</button>
     <button id="open-pdf-btn" onclick="document.getElementById('pdf-file-input').click()">
       Open PDF
@@ -307,19 +318,40 @@
       document.body.classList.remove('is-dragging');
     });
 
+    // ── Force board render on load ──
+    [50, 200, 500, 1000].forEach(function (delay) {
+      setTimeout(function () {
+        window.dispatchEvent(new Event('resize'));
+        if (window.jQuery) jQuery(window).trigger('resize');
+      }, delay);
+    });
+
     // ── Board toggle ──
-    const toggleBtn = document.getElementById('toggle-board-btn');
+    const toggleBoardBtn = document.getElementById('toggle-board-btn');
     const chessPanel = document.getElementById('chess-panel');
     let boardVisible = true;
 
-    toggleBtn.addEventListener('click', function () {
+    toggleBoardBtn.addEventListener('click', function () {
       boardVisible = !boardVisible;
       chessPanel.classList.toggle('board-hidden', !boardVisible);
       divider.classList.toggle('board-hidden', !boardVisible);
       pdfPanel.classList.toggle('board-hidden', !boardVisible);
-      toggleBtn.textContent = boardVisible ? '♟ Hide Board' : '♟ Show Board';
-      toggleBtn.style.borderColor = boardVisible ? '#3d3d3d' : '#629924';
-      toggleBtn.style.color = boardVisible ? '#bababa' : '#629924';
+      toggleBoardBtn.textContent = boardVisible ? '♟ Hide Board' : '♟ Show Board';
+      toggleBoardBtn.style.borderColor = boardVisible ? '#3d3d3d' : '#629924';
+      toggleBoardBtn.style.color = boardVisible ? '#bababa' : '#629924';
+    });
+
+    // ── PDF toggle ──
+    const togglePdfBtn = document.getElementById('toggle-pdf-btn');
+    let pdfVisible = true;
+
+    togglePdfBtn.addEventListener('click', function () {
+      pdfVisible = !pdfVisible;
+      pdfPanel.classList.toggle('pdf-hidden', !pdfVisible);
+      divider.classList.toggle('pdf-hidden', !pdfVisible);
+      togglePdfBtn.textContent = pdfVisible ? '\uD83D\uDCC4 Hide PDF' : '\uD83D\uDCC4 Show PDF';
+      togglePdfBtn.style.borderColor = pdfVisible ? '#3d3d3d' : '#629924';
+      togglePdfBtn.style.color = pdfVisible ? '#bababa' : '#629924';
     });
   </script>
 
