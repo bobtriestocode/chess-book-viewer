@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chess Book Viewer</title>
 
-  <link rel="stylesheet" type="text/css" href="https://pgn.chessbase.com/CBReplay.css"/>
-  <script src="https://pgn.chessbase.com/jquery-3.0.0.min.js"></script>
-  <script src="https://pgn.chessbase.com/cbreplay.js" type="text/javascript"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@lichess-org/chessground@10.1.1/assets/chessground.base.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@lichess-org/chessground@10.1.1/assets/chessground.brown.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@lichess-org/chessground@10.1.1/assets/chessground.cburnett.css" />
 
   <style>
     *, *::before, *::after {
@@ -155,15 +155,258 @@
       flex: 1;
       min-width: 200px;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
       background: #161512;
-      overflow: auto;
-      padding: 16px;
+      overflow: hidden;
+      padding: 0;
     }
 
-    .cbreplay {
-      max-width: 100%;
+    #chess-ui {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      gap: 8px;
+    }
+
+    .chess-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .chess-toolbar .panel-toggle {
+      background: transparent;
+      color: #bababa;
+      border: 1px solid #3d3d3d;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .chess-toolbar .panel-toggle:hover {
+      background: #2a2826;
+      border-color: #629924;
+      color: #e8e8e8;
+    }
+
+    .chess-toolbar .panel-toggle.is-active {
+      border-color: #629924;
+      color: #629924;
+    }
+
+    .chess-collapsible {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.3s ease;
+    }
+
+    .chess-collapsible.is-open {
+      grid-template-rows: 1fr;
+    }
+
+    .chess-collapsible-inner {
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .pgn-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      padding-bottom: 2px;
+    }
+
+    #pgn-input {
+      width: 100%;
+      min-height: 64px;
+      max-height: 120px;
+      resize: vertical;
+      background: #262421;
+      border: 1px solid #3d3d3d;
+      border-radius: 4px;
+      color: #e8e8e8;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 8px;
+    }
+
+    #pgn-input::placeholder {
+      color: #666;
+    }
+
+    .pgn-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #load-pgn-btn,
+    #load-fen-btn,
+    #reset-board-btn,
+    #flip-board-btn {
+      background: #3d3d3d;
+      color: #e8e8e8;
+      border: none;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    #load-pgn-btn:hover,
+    #load-fen-btn:hover,
+    #reset-board-btn:hover,
+    #flip-board-btn:hover {
+      background: #629924;
+    }
+
+    .chess-toolbar #flip-board-btn {
+      margin-left: auto;
+    }
+
+    #pgn-status {
+      font-size: 12px;
+      color: #888;
+    }
+
+    #pgn-status.error {
+      color: #e58f8f;
+    }
+
+    #pgn-status.ok {
+      color: #629924;
+    }
+
+    .fen-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      padding-bottom: 2px;
+    }
+
+    .fen-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #fen-input {
+      width: 100%;
+      background: #262421;
+      border: 1px solid #3d3d3d;
+      border-radius: 4px;
+      color: #e8e8e8;
+      font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+      font-size: 12px;
+      padding: 8px;
+    }
+
+    #fen-input::placeholder {
+      color: #666;
+    }
+
+    #fen-status {
+      font-size: 12px;
+      color: #888;
+    }
+
+    #fen-status.error {
+      color: #e58f8f;
+    }
+
+    #fen-status.ok {
+      color: #629924;
+    }
+
+    #board-wrap {
+      flex: 1;
+      min-height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #board {
+      border-radius: 4px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .nav-bar {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .nav-bar button {
+      background: #2e2c2a;
+      color: #e8e8e8;
+      border: 1px solid #3d3d3d;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      border-radius: 4px;
+      cursor: pointer;
+      min-width: 40px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .nav-bar button:hover {
+      border-color: #629924;
+      background: #3a3836;
+    }
+
+    .nav-bar button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    #move-list {
+      max-height: 100px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #bababa;
+      padding: 8px 4px 4px;
+      border-top: 1px solid #2e2c2a;
+    }
+
+    #move-list .move-item {
+      display: inline-block;
+      padding: 2px 4px;
+      margin: 1px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    #move-list .move-item:hover {
+      background: #2e2c2a;
+    }
+
+    #move-list .move-item.current {
+      background: #629924;
+      color: #fff;
+    }
+
+    #move-list .move-num {
+      color: #666;
+      margin-right: 2px;
     }
 
     /* prevent iframe interaction stealing drag events */
@@ -263,12 +506,59 @@
 
     <!-- Right: Chess board -->
     <div id="chess-panel">
-      <div class="cbreplay"></div>
+      <div id="chess-ui">
+        <div class="chess-toolbar">
+          <button type="button" class="panel-toggle" id="toggle-pgn-panel-btn">Show PGN</button>
+          <button type="button" class="panel-toggle" id="toggle-fen-panel-btn">Show FEN</button>
+          <button type="button" class="panel-toggle" id="toggle-moves-panel-btn">Show Moves</button>
+          <button type="button" id="reset-board-btn">Reset board</button>
+          <button type="button" id="flip-board-btn">Flip board</button>
+        </div>
+        <div id="pgn-drawer" class="chess-collapsible">
+          <div class="chess-collapsible-inner">
+            <div class="pgn-bar">
+              <textarea id="pgn-input" placeholder="Paste PGN here, then Load PGN…"></textarea>
+              <div class="pgn-actions">
+                <button type="button" id="load-pgn-btn">Load PGN</button>
+                <span id="pgn-status"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="fen-drawer" class="chess-collapsible">
+          <div class="chess-collapsible-inner">
+            <div class="fen-bar">
+              <input type="text" id="fen-input" placeholder="FEN string, e.g. rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" spellcheck="false" autocomplete="off" />
+              <div class="fen-actions">
+                <button type="button" id="load-fen-btn">Load FEN</button>
+                <span id="fen-status"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="board-wrap">
+          <div id="board" class="chessground"></div>
+        </div>
+        <div class="nav-bar">
+          <button type="button" id="nav-first" title="Start">|◀</button>
+          <button type="button" id="nav-prev" title="Previous">◀</button>
+          <button type="button" id="nav-next" title="Next">▶</button>
+          <button type="button" id="nav-last" title="End">▶|</button>
+        </div>
+        <div id="move-drawer" class="chess-collapsible">
+          <div class="chess-collapsible-inner">
+            <div id="move-list"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>
 
-  <script>
+  <script type="module">
+    import { Chessground } from 'https://cdn.jsdelivr.net/npm/@lichess-org/chessground@10.1.1/dist/chessground.js';
+    import { Chess, validateFen } from 'https://cdn.jsdelivr.net/npm/chess.js@1.2.0/dist/esm/chess.js';
+
     // ── PDF loading ──
     document.getElementById('pdf-file-input').addEventListener('change', function (e) {
       const file = e.target.files[0];
@@ -318,14 +608,6 @@
       document.body.classList.remove('is-dragging');
     });
 
-    // ── Force board render on load ──
-    [50, 200, 500, 1000].forEach(function (delay) {
-      setTimeout(function () {
-        window.dispatchEvent(new Event('resize'));
-        if (window.jQuery) jQuery(window).trigger('resize');
-      }, delay);
-    });
-
     // ── Board toggle ──
     const toggleBoardBtn = document.getElementById('toggle-board-btn');
     const chessPanel = document.getElementById('chess-panel');
@@ -339,6 +621,7 @@
       toggleBoardBtn.textContent = boardVisible ? '♟ Hide Board' : '♟ Show Board';
       toggleBoardBtn.style.borderColor = boardVisible ? '#3d3d3d' : '#629924';
       toggleBoardBtn.style.color = boardVisible ? '#bababa' : '#629924';
+      if (boardVisible) requestAnimationFrame(() => redrawGround());
     });
 
     // ── PDF toggle ──
@@ -352,7 +635,333 @@
       togglePdfBtn.textContent = pdfVisible ? '\uD83D\uDCC4 Hide PDF' : '\uD83D\uDCC4 Show PDF';
       togglePdfBtn.style.borderColor = pdfVisible ? '#3d3d3d' : '#629924';
       togglePdfBtn.style.color = pdfVisible ? '#bababa' : '#629924';
+      if (!pdfVisible) return;
+      requestAnimationFrame(() => redrawGround());
     });
+
+    // ── Chessground + chess.js ──
+    const boardEl = document.getElementById('board');
+    const boardWrap = document.getElementById('board-wrap');
+    const pgnInput = document.getElementById('pgn-input');
+    const pgnStatus = document.getElementById('pgn-status');
+    const fenInput = document.getElementById('fen-input');
+    const fenStatus = document.getElementById('fen-status');
+    const moveListEl = document.getElementById('move-list');
+
+    let mainLine = [];
+    let ply = 0;
+    let orientation = 'white';
+
+    function chessAtPly(plyCount) {
+      const chess = new Chess();
+      for (let i = 0; i < plyCount && i < mainLine.length; i++) {
+        chess.move(mainLine[i].san);
+      }
+      return chess;
+    }
+
+    function computeDests(chess) {
+      const dests = new Map();
+      for (const m of chess.moves({ verbose: true })) {
+        if (!dests.has(m.from)) dests.set(m.from, []);
+        dests.get(m.from).push(m.to);
+      }
+      return dests;
+    }
+
+    function applyGroundFromChess(chess, lastMove) {
+      const dests = computeDests(chess);
+      const turnColor = chess.turn() === 'w' ? 'white' : 'black';
+      ground.set({
+        fen: chess.fen(),
+        orientation,
+        lastMove: lastMove || undefined,
+        check: chess.inCheck(),
+        turnColor,
+        movable: {
+          color: turnColor,
+          dests,
+          free: false,
+          events: {
+            after: handleUserMove,
+          },
+        },
+        draggable: { enabled: true },
+      });
+    }
+
+    function positionAtPly(n) {
+      const chess = chessAtPly(n);
+      let lastMove;
+      if (n > 0 && mainLine[n - 1]) {
+        const m = mainLine[n - 1];
+        lastMove = [m.from, m.to];
+      }
+      applyGroundFromChess(chess, lastMove);
+    }
+
+    function handleUserMove(orig, dest) {
+      const chess = chessAtPly(ply);
+      let moveResult = chess.move({ from: orig, to: dest });
+      if (!moveResult) {
+        moveResult = chess.move({ from: orig, to: dest, promotion: 'q' });
+      }
+      if (!moveResult) {
+        positionAtPly(ply);
+        return;
+      }
+      const hist = chess.history({ verbose: true });
+      const added = hist[hist.length - 1];
+      mainLine = mainLine.slice(0, ply).concat([added]);
+      ply = mainLine.length;
+      renderMoveList();
+      updateNavButtons();
+      positionAtPly(ply);
+    }
+
+    const ground = Chessground(boardEl, {
+      animation: { duration: 200 },
+      premovable: { enabled: false },
+      drawable: {
+        enabled: true,
+        visible: true,
+      },
+      coordinates: true,
+      highlight: {
+        lastMove: true,
+        check: true,
+      },
+    });
+
+    positionAtPly(0);
+
+    function redrawGround() {
+      if (typeof ground.redrawAll === 'function') ground.redrawAll();
+    }
+
+    function setPly(n) {
+      ply = Math.max(0, Math.min(n, mainLine.length));
+      positionAtPly(ply);
+      renderMoveList();
+      updateNavButtons();
+    }
+
+    function renderMoveList() {
+      moveListEl.innerHTML = '';
+      for (let i = 0; i < mainLine.length; i++) {
+        const m = mainLine[i];
+        const span = document.createElement('span');
+        span.className = 'move-item' + (i === ply - 1 ? ' current' : '');
+        if (i % 2 === 0) {
+          const num = document.createElement('span');
+          num.className = 'move-num';
+          num.textContent = Math.floor(i / 2) + 1 + '.';
+          span.appendChild(num);
+        }
+        span.appendChild(document.createTextNode(m.san + ' '));
+        span.addEventListener('click', function () {
+          setPly(i + 1);
+        });
+        moveListEl.appendChild(span);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById('nav-first').disabled = ply <= 0;
+      document.getElementById('nav-prev').disabled = ply <= 0;
+      document.getElementById('nav-next').disabled = ply >= mainLine.length;
+      document.getElementById('nav-last').disabled = ply >= mainLine.length;
+    }
+
+    function loadPgnFromInput() {
+      const text = pgnInput.value.trim();
+      pgnStatus.textContent = '';
+      pgnStatus.className = '';
+
+      if (!text) {
+        pgnStatus.textContent = 'Paste a PGN first.';
+        pgnStatus.className = 'error';
+        return;
+      }
+
+      const chess = new Chess();
+      try {
+        chess.loadPgn(text, { strict: false });
+      } catch (err) {
+        pgnStatus.textContent = 'Could not parse PGN.';
+        pgnStatus.className = 'error';
+        return;
+      }
+
+      mainLine = chess.history({ verbose: true });
+      pgnStatus.textContent = mainLine.length + ' moves (main line)';
+      pgnStatus.className = 'ok';
+      setPly(0);
+    }
+
+    document.getElementById('load-pgn-btn').addEventListener('click', loadPgnFromInput);
+
+    function loadFenFromInput() {
+      const fenStr = fenInput.value.trim();
+      fenStatus.textContent = '';
+      fenStatus.className = '';
+
+      if (!fenStr) {
+        fenStatus.textContent = 'Enter a FEN string first.';
+        fenStatus.className = 'error';
+        return;
+      }
+
+      const checked = validateFen(fenStr);
+      if (!checked.ok) {
+        fenStatus.textContent = checked.error || 'Invalid FEN.';
+        fenStatus.className = 'error';
+        return;
+      }
+
+      const chess = new Chess(fenStr);
+      mainLine = [];
+      ply = 0;
+      applyGroundFromChess(chess, undefined);
+      renderMoveList();
+      updateNavButtons();
+      fenStatus.textContent = 'Position loaded.';
+      fenStatus.className = 'ok';
+    }
+
+    document.getElementById('load-fen-btn').addEventListener('click', loadFenFromInput);
+
+    function resetBoardToStart() {
+      mainLine = [];
+      ply = 0;
+      ground.setShapes([]);
+      positionAtPly(0);
+      renderMoveList();
+      updateNavButtons();
+      pgnStatus.textContent = '';
+      pgnStatus.className = '';
+      fenStatus.textContent = '';
+      fenStatus.className = '';
+    }
+
+    document.getElementById('reset-board-btn').addEventListener('click', resetBoardToStart);
+
+    document.getElementById('flip-board-btn').addEventListener('click', function () {
+      orientation = orientation === 'white' ? 'black' : 'white';
+      ground.set({ orientation });
+      positionAtPly(ply);
+    });
+
+    const pgnDrawer = document.getElementById('pgn-drawer');
+    const fenDrawer = document.getElementById('fen-drawer');
+    const moveDrawer = document.getElementById('move-drawer');
+    const togglePgnPanelBtn = document.getElementById('toggle-pgn-panel-btn');
+    const toggleFenPanelBtn = document.getElementById('toggle-fen-panel-btn');
+    const toggleMovesPanelBtn = document.getElementById('toggle-moves-panel-btn');
+    let pgnPanelOpen = false;
+    let fenPanelOpen = false;
+    let movesPanelOpen = false;
+
+    function refreshBoardLayout() {
+      requestAnimationFrame(function () {
+        sizeBoard();
+      });
+    }
+
+    function closeFenPanel() {
+      fenPanelOpen = false;
+      fenDrawer.classList.remove('is-open');
+      toggleFenPanelBtn.textContent = 'Show FEN';
+      toggleFenPanelBtn.classList.remove('is-active');
+    }
+
+    function closePgnPanel() {
+      pgnPanelOpen = false;
+      pgnDrawer.classList.remove('is-open');
+      togglePgnPanelBtn.textContent = 'Show PGN';
+      togglePgnPanelBtn.classList.remove('is-active');
+    }
+
+    togglePgnPanelBtn.addEventListener('click', function () {
+      pgnPanelOpen = !pgnPanelOpen;
+      if (pgnPanelOpen) closeFenPanel();
+      pgnDrawer.classList.toggle('is-open', pgnPanelOpen);
+      togglePgnPanelBtn.textContent = pgnPanelOpen ? 'Hide PGN' : 'Show PGN';
+      togglePgnPanelBtn.classList.toggle('is-active', pgnPanelOpen);
+      refreshBoardLayout();
+    });
+
+    toggleFenPanelBtn.addEventListener('click', function () {
+      fenPanelOpen = !fenPanelOpen;
+      if (fenPanelOpen) {
+        closePgnPanel();
+        fenInput.value = chessAtPly(ply).fen();
+        fenStatus.textContent = '';
+        fenStatus.className = '';
+      }
+      fenDrawer.classList.toggle('is-open', fenPanelOpen);
+      toggleFenPanelBtn.textContent = fenPanelOpen ? 'Hide FEN' : 'Show FEN';
+      toggleFenPanelBtn.classList.toggle('is-active', fenPanelOpen);
+      refreshBoardLayout();
+    });
+
+    toggleMovesPanelBtn.addEventListener('click', function () {
+      movesPanelOpen = !movesPanelOpen;
+      moveDrawer.classList.toggle('is-open', movesPanelOpen);
+      toggleMovesPanelBtn.textContent = movesPanelOpen ? 'Hide Moves' : 'Show Moves';
+      toggleMovesPanelBtn.classList.toggle('is-active', movesPanelOpen);
+      refreshBoardLayout();
+    });
+
+    document.getElementById('nav-first').addEventListener('click', function () {
+      setPly(0);
+    });
+    document.getElementById('nav-prev').addEventListener('click', function () {
+      setPly(ply - 1);
+    });
+    document.getElementById('nav-next').addEventListener('click', function () {
+      setPly(ply + 1);
+    });
+    document.getElementById('nav-last').addEventListener('click', function () {
+      setPly(mainLine.length);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      const tag = e.target && e.target.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setPly(ply - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setPly(ply + 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setPly(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setPly(mainLine.length);
+      }
+    });
+
+    function sizeBoard() {
+      const w = boardWrap.clientWidth;
+      const h = boardWrap.clientHeight;
+      const size = Math.max(120, Math.min(w, h) - 4);
+      boardEl.style.width = size + 'px';
+      boardEl.style.height = size + 'px';
+      redrawGround();
+    }
+
+    const ro = new ResizeObserver(function () {
+      sizeBoard();
+    });
+    ro.observe(boardWrap);
+
+    window.addEventListener('resize', sizeBoard);
+    sizeBoard();
+    updateNavButtons();
   </script>
 
 </body>
