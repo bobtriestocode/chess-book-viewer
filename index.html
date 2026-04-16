@@ -508,8 +508,8 @@
     <div id="chess-panel">
       <div id="chess-ui">
         <div class="chess-toolbar">
-          <button type="button" class="panel-toggle" id="toggle-pgn-panel-btn">Show PGN</button>
-          <button type="button" class="panel-toggle" id="toggle-fen-panel-btn">Show FEN</button>
+          <button type="button" class="panel-toggle" id="toggle-pgn-panel-btn">Load PGN</button>
+          <button type="button" class="panel-toggle" id="toggle-fen-panel-btn">Load FEN</button>
           <button type="button" class="panel-toggle" id="toggle-moves-panel-btn">Show Moves</button>
           <button type="button" id="reset-board-btn">Reset board</button>
           <button type="button" id="flip-board-btn">Flip board</button>
@@ -558,6 +558,8 @@
   <script type="module">
     import { Chessground } from 'https://cdn.jsdelivr.net/npm/@lichess-org/chessground@10.1.1/dist/chessground.js';
     import { Chess, validateFen } from 'https://cdn.jsdelivr.net/npm/chess.js@1.2.0/dist/esm/chess.js';
+
+    const defaultStartFen = new Chess().fen();
 
     // ── PDF loading ──
     document.getElementById('pdf-file-input').addEventListener('change', function (e) {
@@ -651,9 +653,10 @@
     let mainLine = [];
     let ply = 0;
     let orientation = 'white';
+    let baseFen = defaultStartFen;
 
     function chessAtPly(plyCount) {
-      const chess = new Chess();
+      const chess = new Chess(baseFen);
       for (let i = 0; i < plyCount && i < mainLine.length; i++) {
         chess.move(mainLine[i].san);
       }
@@ -773,6 +776,78 @@
       document.getElementById('nav-last').disabled = ply >= mainLine.length;
     }
 
+    const pgnDrawer = document.getElementById('pgn-drawer');
+    const fenDrawer = document.getElementById('fen-drawer');
+    const moveDrawer = document.getElementById('move-drawer');
+    const togglePgnPanelBtn = document.getElementById('toggle-pgn-panel-btn');
+    const toggleFenPanelBtn = document.getElementById('toggle-fen-panel-btn');
+    const toggleMovesPanelBtn = document.getElementById('toggle-moves-panel-btn');
+    let pgnPanelOpen = false;
+    let fenPanelOpen = false;
+    let movesPanelOpen = false;
+
+    function refreshBoardLayout() {
+      requestAnimationFrame(function () {
+        sizeBoard();
+      });
+    }
+
+    function refreshLayoutAfterDrawerClose(drawerEl) {
+      let settled = false;
+      function finish() {
+        if (settled) return;
+        settled = true;
+        clearTimeout(fallback);
+        drawerEl.removeEventListener('transitionend', onEnd);
+        refreshBoardLayout();
+      }
+      function onEnd(e) {
+        if (e.target !== drawerEl) return;
+        if (e.propertyName !== 'grid-template-rows') return;
+        finish();
+      }
+      const fallback = setTimeout(finish, 400);
+      drawerEl.addEventListener('transitionend', onEnd);
+    }
+
+    function closeFenPanel() {
+      fenPanelOpen = false;
+      fenDrawer.classList.remove('is-open');
+      toggleFenPanelBtn.textContent = 'Load FEN';
+      toggleFenPanelBtn.classList.remove('is-active');
+    }
+
+    function closePgnPanel() {
+      pgnPanelOpen = false;
+      pgnDrawer.classList.remove('is-open');
+      togglePgnPanelBtn.textContent = 'Load PGN';
+      togglePgnPanelBtn.classList.remove('is-active');
+    }
+
+    function closePgnPanelAfterLoad() {
+      if (!pgnPanelOpen) {
+        refreshBoardLayout();
+        return;
+      }
+      refreshLayoutAfterDrawerClose(pgnDrawer);
+      pgnPanelOpen = false;
+      pgnDrawer.classList.remove('is-open');
+      togglePgnPanelBtn.textContent = 'Load PGN';
+      togglePgnPanelBtn.classList.remove('is-active');
+    }
+
+    function closeFenPanelAfterLoad() {
+      if (!fenPanelOpen) {
+        refreshBoardLayout();
+        return;
+      }
+      refreshLayoutAfterDrawerClose(fenDrawer);
+      fenPanelOpen = false;
+      fenDrawer.classList.remove('is-open');
+      toggleFenPanelBtn.textContent = 'Load FEN';
+      toggleFenPanelBtn.classList.remove('is-active');
+    }
+
     function loadPgnFromInput() {
       const text = pgnInput.value.trim();
       pgnStatus.textContent = '';
@@ -794,9 +869,14 @@
       }
 
       mainLine = chess.history({ verbose: true });
+      while (chess.history().length > 0) {
+        chess.undo();
+      }
+      baseFen = chess.fen();
       pgnStatus.textContent = mainLine.length + ' moves (main line)';
       pgnStatus.className = 'ok';
       setPly(0);
+      closePgnPanelAfterLoad();
     }
 
     document.getElementById('load-pgn-btn').addEventListener('click', loadPgnFromInput);
@@ -820,6 +900,7 @@
       }
 
       const chess = new Chess(fenStr);
+      baseFen = chess.fen();
       mainLine = [];
       ply = 0;
       applyGroundFromChess(chess, undefined);
@@ -827,11 +908,13 @@
       updateNavButtons();
       fenStatus.textContent = 'Position loaded.';
       fenStatus.className = 'ok';
+      closeFenPanelAfterLoad();
     }
 
     document.getElementById('load-fen-btn').addEventListener('click', loadFenFromInput);
 
     function resetBoardToStart() {
+      baseFen = defaultStartFen;
       mainLine = [];
       ply = 0;
       ground.setShapes([]);
@@ -848,61 +931,44 @@
 
     document.getElementById('flip-board-btn').addEventListener('click', function () {
       orientation = orientation === 'white' ? 'black' : 'white';
-      ground.set({ orientation });
       positionAtPly(ply);
     });
 
-    const pgnDrawer = document.getElementById('pgn-drawer');
-    const fenDrawer = document.getElementById('fen-drawer');
-    const moveDrawer = document.getElementById('move-drawer');
-    const togglePgnPanelBtn = document.getElementById('toggle-pgn-panel-btn');
-    const toggleFenPanelBtn = document.getElementById('toggle-fen-panel-btn');
-    const toggleMovesPanelBtn = document.getElementById('toggle-moves-panel-btn');
-    let pgnPanelOpen = false;
-    let fenPanelOpen = false;
-    let movesPanelOpen = false;
-
-    function refreshBoardLayout() {
-      requestAnimationFrame(function () {
-        sizeBoard();
-      });
-    }
-
-    function closeFenPanel() {
-      fenPanelOpen = false;
-      fenDrawer.classList.remove('is-open');
-      toggleFenPanelBtn.textContent = 'Show FEN';
-      toggleFenPanelBtn.classList.remove('is-active');
-    }
-
-    function closePgnPanel() {
-      pgnPanelOpen = false;
-      pgnDrawer.classList.remove('is-open');
-      togglePgnPanelBtn.textContent = 'Show PGN';
-      togglePgnPanelBtn.classList.remove('is-active');
-    }
-
     togglePgnPanelBtn.addEventListener('click', function () {
-      pgnPanelOpen = !pgnPanelOpen;
-      if (pgnPanelOpen) closeFenPanel();
-      pgnDrawer.classList.toggle('is-open', pgnPanelOpen);
-      togglePgnPanelBtn.textContent = pgnPanelOpen ? 'Hide PGN' : 'Show PGN';
-      togglePgnPanelBtn.classList.toggle('is-active', pgnPanelOpen);
-      refreshBoardLayout();
+      if (pgnPanelOpen) {
+        refreshLayoutAfterDrawerClose(pgnDrawer);
+        pgnPanelOpen = false;
+        pgnDrawer.classList.remove('is-open');
+        togglePgnPanelBtn.textContent = 'Load PGN';
+        togglePgnPanelBtn.classList.remove('is-active');
+      } else {
+        pgnPanelOpen = true;
+        closeFenPanel();
+        pgnDrawer.classList.add('is-open');
+        togglePgnPanelBtn.textContent = 'Hide PGN';
+        togglePgnPanelBtn.classList.add('is-active');
+        refreshBoardLayout();
+      }
     });
 
     toggleFenPanelBtn.addEventListener('click', function () {
-      fenPanelOpen = !fenPanelOpen;
       if (fenPanelOpen) {
+        refreshLayoutAfterDrawerClose(fenDrawer);
+        fenPanelOpen = false;
+        fenDrawer.classList.remove('is-open');
+        toggleFenPanelBtn.textContent = 'Load FEN';
+        toggleFenPanelBtn.classList.remove('is-active');
+      } else {
+        fenPanelOpen = true;
         closePgnPanel();
         fenInput.value = chessAtPly(ply).fen();
         fenStatus.textContent = '';
         fenStatus.className = '';
+        fenDrawer.classList.add('is-open');
+        toggleFenPanelBtn.textContent = 'Hide FEN';
+        toggleFenPanelBtn.classList.add('is-active');
+        refreshBoardLayout();
       }
-      fenDrawer.classList.toggle('is-open', fenPanelOpen);
-      toggleFenPanelBtn.textContent = fenPanelOpen ? 'Hide FEN' : 'Show FEN';
-      toggleFenPanelBtn.classList.toggle('is-active', fenPanelOpen);
-      refreshBoardLayout();
     });
 
     toggleMovesPanelBtn.addEventListener('click', function () {
