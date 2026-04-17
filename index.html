@@ -347,6 +347,28 @@
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
     }
 
+    /* Chessground theme: CG 10 uses cg-board for the checkerboard, not square.light/dark */
+    cg-board {
+      background-color: #b58863;
+      background-image: repeating-conic-gradient(
+        #f0d9b5 0% 25%,
+        #b58863 0% 50%
+      );
+      background-size: 25% 25%;
+    }
+
+    cg-board square.last-move {
+      background-color: #c4c953;
+    }
+
+    cg-board square.selected {
+      background-color: rgba(20, 85, 30, 0.5);
+    }
+
+    cg-board square.move-dest {
+      background: radial-gradient(rgba(20, 85, 30, 0.5) 22%, transparent 23%);
+    }
+
     .nav-bar {
       display: flex;
       justify-content: center;
