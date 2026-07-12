@@ -1,0 +1,38 @@
+Quick wins (small effort, high impact)
+Stockfish engine analysis — Add a WASM Stockfish worker to show evaluation bar + best line for the current position. This is the single biggest feature upgrade for a chess study tool.
+
+Promotion picker — Right now user moves auto-promote to queen (promotion: 'q'). Add a small UI to choose queen/rook/bishop/knight.
+
+Keyboard shortcut for flip — e.g. f key to flip the board (currently only arrow keys and Home/End are bound).
+
+Copy FEN / Copy PGN buttons — One-click to copy the current position's FEN or the full move list as PGN to clipboard.
+
+Auto-open move list after loading PGN — When you load a PGN with moves, automatically show the moves panel.
+
+Medium effort
+Variation / branch support — Currently mainLine is flat; there's no way to explore side lines. A tree structure would let you branch off, go back, and explore alternatives (like Lichess analysis).
+
+Move sound effects — Play a short audio clip on move, capture, check, and castling (Lichess-style — the sound files are freely available).
+
+Board themes picker — Let the user switch between brown, blue, green, etc. board colors and different piece sets (cburnett, merida, alpha, etc.).
+
+Annotation support — Parse PGN comments ({...}), NAGs (!, ?, !!, ??, etc.) and display them alongside moves.
+
+PDF page sync hints — When navigating moves, show the current move number prominently so the user can manually find their place in the PDF. (True OCR-based sync would be a big project.)
+
+Bigger features
+Opening explorer — Hit the Lichess opening explorer API (https://explorer.lichess.ovh/…) to show what masters or online players have played from the current position.
+
+Local storage persistence — Save the last loaded PGN/FEN and board state so refreshing the page doesn't lose your work.
+
+Mobile / touch support — The divider drag and board interaction don't handle touch events. Adding touch support would make it usable on tablets.
+
+Multiple PGN games — Many PGN files contain multiple games. Parse and let the user pick which game to view from a dropdown.
+
+Arrow / highlight annotations on the board — Chessground already supports drawable shapes. Let users right-click-drag to draw arrows and highlight squares (it's partially enabled but there's no persistence or integration with PGN comments).
+
+Polish
+Loading indicator — Show a spinner or skeleton while the Chessground/chess.js modules load from jsDelivr.
+Responsive layout — Stack PDF above board on narrow screens instead of side-by-side.
+Favicon — Add a chess-themed favicon instead of the default blank one.
+Drag-and-drop PGN/FEN files — Let users drop a .pgn file onto the board area to load it.

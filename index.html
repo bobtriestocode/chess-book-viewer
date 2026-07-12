@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chess Book Viewer</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23629924'/%3E%3Ctext x='32' y='48' font-size='44' text-anchor='middle' fill='white'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@lichess-org/chessground@10.1.1/assets/chessground.base.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@lichess-org/chessground@10.1.1/assets/chessground.brown.css" />
@@ -253,7 +254,9 @@
     #load-pgn-btn,
     #load-fen-btn,
     #reset-board-btn,
-    #flip-board-btn {
+    #flip-board-btn,
+    #copy-fen-btn,
+    #copy-pgn-btn {
       background: #3d3d3d;
       color: #e8e8e8;
       border: none;
@@ -269,7 +272,14 @@
     #load-pgn-btn:hover,
     #load-fen-btn:hover,
     #reset-board-btn:hover,
-    #flip-board-btn:hover {
+    #flip-board-btn:hover,
+    #copy-fen-btn:hover,
+    #copy-pgn-btn:hover {
+      background: #629924;
+    }
+
+    #copy-fen-btn.copied,
+    #copy-pgn-btn.copied {
       background: #629924;
     }
 
@@ -331,6 +341,37 @@
 
     #fen-status.ok {
       color: #629924;
+    }
+
+    .notes-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      padding-bottom: 2px;
+    }
+
+    #notes-label {
+      font-size: 12px;
+      color: #888;
+    }
+
+    #notes-input {
+      width: 100%;
+      min-height: 64px;
+      max-height: 120px;
+      resize: vertical;
+      background: #262421;
+      border: 1px solid #3d3d3d;
+      border-radius: 4px;
+      color: #e8e8e8;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 8px;
+    }
+
+    #notes-input::placeholder {
+      color: #666;
     }
 
     #board-wrap {
@@ -429,6 +470,10 @@
     #move-list .move-num {
       color: #666;
       margin-right: 2px;
+    }
+
+    #move-list .move-item.has-note {
+      box-shadow: inset 0 -2px 0 #629924;
     }
 
     /* prevent iframe interaction stealing drag events */
@@ -533,7 +578,10 @@
           <button type="button" class="panel-toggle" id="toggle-pgn-panel-btn">Load PGN</button>
           <button type="button" class="panel-toggle" id="toggle-fen-panel-btn">Load FEN</button>
           <button type="button" class="panel-toggle" id="toggle-moves-panel-btn">Show Moves</button>
+          <button type="button" class="panel-toggle" id="toggle-notes-panel-btn">Notes</button>
           <button type="button" id="reset-board-btn">Reset board</button>
+          <button type="button" id="copy-fen-btn">Copy FEN</button>
+          <button type="button" id="copy-pgn-btn">Copy PGN</button>
           <button type="button" id="flip-board-btn">Flip board</button>
         </div>
         <div id="pgn-drawer" class="chess-collapsible">
@@ -555,6 +603,14 @@
                 <button type="button" id="load-fen-btn">Load FEN</button>
                 <span id="fen-status"></span>
               </div>
+            </div>
+          </div>
+        </div>
+        <div id="notes-drawer" class="chess-collapsible">
+          <div class="chess-collapsible-inner">
+            <div class="notes-bar">
+              <div id="notes-label">Starting position</div>
+              <textarea id="notes-input" placeholder="Type a note for this position… (included when you Copy PGN)"></textarea>
             </div>
           </div>
         </div>
@@ -676,6 +732,33 @@
     let ply = 0;
     let orientation = 'white';
     let baseFen = defaultStartFen;
+    let notesByPly = new Map();
+
+    function moveLabelForPly(p) {
+      if (p === 0 || !mainLine[p - 1]) return 'Starting position';
+      const m = mainLine[p - 1];
+      const moveNum = Math.floor((p - 1) / 2) + 1;
+      const isWhite = (p - 1) % 2 === 0;
+      return moveNum + (isWhite ? '. ' : '... ') + m.san;
+    }
+
+    function pruneNotesAfter(n) {
+      for (const key of Array.from(notesByPly.keys())) {
+        if (key > n) notesByPly.delete(key);
+      }
+    }
+
+    function buildAnnotatedPgn() {
+      const chess = new Chess(baseFen);
+      const startNote = notesByPly.get(0);
+      if (startNote) chess.setComment(startNote);
+      for (let i = 0; i < mainLine.length; i++) {
+        chess.move(mainLine[i].san);
+        const note = notesByPly.get(i + 1);
+        if (note) chess.setComment(note);
+      }
+      return chess.pgn();
+    }
 
     function chessAtPly(plyCount) {
       const chess = new Chess(baseFen);
@@ -737,11 +820,14 @@
       }
       const hist = chess.history({ verbose: true });
       const added = hist[hist.length - 1];
+      pruneNotesAfter(ply);
       mainLine = mainLine.slice(0, ply).concat([added]);
       ply = mainLine.length;
       renderMoveList();
       updateNavButtons();
       positionAtPly(ply);
+      syncFenField();
+      syncNotesField();
     }
 
     const ground = Chessground(boardEl, {
@@ -769,6 +855,21 @@
       positionAtPly(ply);
       renderMoveList();
       updateNavButtons();
+      syncFenField();
+      syncNotesField();
+    }
+
+    function syncFenField() {
+      if (fenPanelOpen && document.activeElement !== fenInput) {
+        fenInput.value = chessAtPly(ply).fen();
+      }
+    }
+
+    function syncNotesField() {
+      notesLabel.textContent = moveLabelForPly(ply);
+      if (notesPanelOpen && document.activeElement !== notesInput) {
+        notesInput.value = notesByPly.get(ply) || '';
+      }
     }
 
     function renderMoveList() {
@@ -776,7 +877,9 @@
       for (let i = 0; i < mainLine.length; i++) {
         const m = mainLine[i];
         const span = document.createElement('span');
-        span.className = 'move-item' + (i === ply - 1 ? ' current' : '');
+        const note = notesByPly.get(i + 1);
+        span.className = 'move-item' + (i === ply - 1 ? ' current' : '') + (note ? ' has-note' : '');
+        if (note) span.title = note;
         if (i % 2 === 0) {
           const num = document.createElement('span');
           num.className = 'move-num';
@@ -800,12 +903,17 @@
 
     const pgnDrawer = document.getElementById('pgn-drawer');
     const fenDrawer = document.getElementById('fen-drawer');
+    const notesDrawer = document.getElementById('notes-drawer');
     const moveDrawer = document.getElementById('move-drawer');
     const togglePgnPanelBtn = document.getElementById('toggle-pgn-panel-btn');
     const toggleFenPanelBtn = document.getElementById('toggle-fen-panel-btn');
+    const toggleNotesPanelBtn = document.getElementById('toggle-notes-panel-btn');
     const toggleMovesPanelBtn = document.getElementById('toggle-moves-panel-btn');
+    const notesInput = document.getElementById('notes-input');
+    const notesLabel = document.getElementById('notes-label');
     let pgnPanelOpen = false;
     let fenPanelOpen = false;
+    let notesPanelOpen = false;
     let movesPanelOpen = false;
 
     function refreshBoardLayout() {
@@ -844,6 +952,13 @@
       pgnDrawer.classList.remove('is-open');
       togglePgnPanelBtn.textContent = 'Load PGN';
       togglePgnPanelBtn.classList.remove('is-active');
+    }
+
+    function closeNotesPanel() {
+      notesPanelOpen = false;
+      notesDrawer.classList.remove('is-open');
+      toggleNotesPanelBtn.textContent = 'Notes';
+      toggleNotesPanelBtn.classList.remove('is-active');
     }
 
     function closePgnPanelAfterLoad() {
@@ -895,6 +1010,7 @@
         chess.undo();
       }
       baseFen = chess.fen();
+      notesByPly = new Map();
       pgnStatus.textContent = mainLine.length + ' moves (main line)';
       pgnStatus.className = 'ok';
       setPly(0);
@@ -925,9 +1041,11 @@
       baseFen = chess.fen();
       mainLine = [];
       ply = 0;
+      notesByPly = new Map();
       applyGroundFromChess(chess, undefined);
       renderMoveList();
       updateNavButtons();
+      syncNotesField();
       fenStatus.textContent = 'Position loaded.';
       fenStatus.className = 'ok';
       closeFenPanelAfterLoad();
@@ -939,6 +1057,7 @@
       baseFen = defaultStartFen;
       mainLine = [];
       ply = 0;
+      notesByPly = new Map();
       ground.setShapes([]);
       positionAtPly(0);
       renderMoveList();
@@ -947,9 +1066,35 @@
       pgnStatus.className = '';
       fenStatus.textContent = '';
       fenStatus.className = '';
+      syncFenField();
+      syncNotesField();
     }
 
     document.getElementById('reset-board-btn').addEventListener('click', resetBoardToStart);
+
+    function flashCopied(btn, label) {
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      clearTimeout(btn._copyTimer);
+      btn._copyTimer = setTimeout(function () {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 1000);
+    }
+
+    document.getElementById('copy-fen-btn').addEventListener('click', function () {
+      const fen = chessAtPly(ply).fen();
+      navigator.clipboard.writeText(fen).then(function () {
+        flashCopied(document.getElementById('copy-fen-btn'));
+      });
+    });
+
+    document.getElementById('copy-pgn-btn').addEventListener('click', function () {
+      navigator.clipboard.writeText(buildAnnotatedPgn()).then(function () {
+        flashCopied(document.getElementById('copy-pgn-btn'));
+      });
+    });
 
     document.getElementById('flip-board-btn').addEventListener('click', function () {
       orientation = orientation === 'white' ? 'black' : 'white';
@@ -966,6 +1111,7 @@
       } else {
         pgnPanelOpen = true;
         closeFenPanel();
+        closeNotesPanel();
         pgnDrawer.classList.add('is-open');
         togglePgnPanelBtn.textContent = 'Hide PGN';
         togglePgnPanelBtn.classList.add('is-active');
@@ -983,6 +1129,7 @@
       } else {
         fenPanelOpen = true;
         closePgnPanel();
+        closeNotesPanel();
         fenInput.value = chessAtPly(ply).fen();
         fenStatus.textContent = '';
         fenStatus.className = '';
@@ -991,6 +1138,32 @@
         toggleFenPanelBtn.classList.add('is-active');
         refreshBoardLayout();
       }
+    });
+
+    toggleNotesPanelBtn.addEventListener('click', function () {
+      if (notesPanelOpen) {
+        refreshLayoutAfterDrawerClose(notesDrawer);
+        closeNotesPanel();
+      } else {
+        notesPanelOpen = true;
+        closePgnPanel();
+        closeFenPanel();
+        syncNotesField();
+        notesDrawer.classList.add('is-open');
+        toggleNotesPanelBtn.textContent = 'Hide Notes';
+        toggleNotesPanelBtn.classList.add('is-active');
+        refreshBoardLayout();
+      }
+    });
+
+    notesInput.addEventListener('input', function () {
+      const text = notesInput.value;
+      if (text.trim() === '') {
+        notesByPly.delete(ply);
+      } else {
+        notesByPly.set(ply, text);
+      }
+      renderMoveList();
     });
 
     toggleMovesPanelBtn.addEventListener('click', function () {
